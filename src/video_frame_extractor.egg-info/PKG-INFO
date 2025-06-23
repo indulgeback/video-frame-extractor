@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: video-frame-extractor
+Version: 1.0.0
+Summary: 命令行视频帧提取工具
+Author: Your Name
+Requires-Python: >=3.7
+Requires-Dist: opencv-python
+Requires-Dist: tqdm
+Requires-Dist: numpy
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -1,0 +1,10 @@
+README.md
+setup.py
+src/video_frame_extractor.egg-info/PKG-INFO
+src/video_frame_extractor.egg-info/SOURCES.txt
+src/video_frame_extractor.egg-info/dependency_links.txt
+src/video_frame_extractor.egg-info/entry_points.txt
+src/video_frame_extractor.egg-info/not-zip-safe
+src/video_frame_extractor.egg-info/requires.txt
+src/video_frame_extractor.egg-info/top_level.txt
+tests/test_extractor.py

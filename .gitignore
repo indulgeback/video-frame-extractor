@@ -1,0 +1,16 @@
+# 虚拟环境
+.venv/
+
+# 临时文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 日志
+logs/
+*.log
+
+# 输出文件
+output/
+video/
