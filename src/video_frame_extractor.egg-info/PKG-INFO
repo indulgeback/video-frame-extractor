@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: video-frame-extractor
 Version: 1.0.0
 Summary: 命令行视频帧提取工具
-Author: Your Name
+Author: LeviLiu
 Requires-Python: >=3.7
 Requires-Dist: opencv-python
 Requires-Dist: tqdm

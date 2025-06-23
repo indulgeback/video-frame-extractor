@@ -152,7 +152,7 @@ def extract_first_frames_from_dir(input_dir: str, output_dir: str) -> None:
             print(f"跳过 {video_path}: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description="视频帧提取工具")
+    parser = argparse.ArgumentParser(description="基于 OpenCV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。")
     subparsers = parser.add_subparsers(dest='command', required=True, 
                                         help="可用命令")
     

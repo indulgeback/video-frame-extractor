@@ -12,4 +12,4 @@ echo "正在安装依赖并注册命令..."
 cd "$INSTALL_DIR"
 pip3 install .
 
-echo "恭喜你，安装完成！你可以直接使用 frame-extractor 命令。"
+echo "恭喜你，安装完成！你可以直接使用 frame-extractor 命令;使用方法: frame-extractor --help;更多开源工具请Follow: https://github.com/indulgeback"
