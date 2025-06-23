@@ -19,6 +19,11 @@
 > cd $TMP_DIR
 > pip install .
 > echo "安装完成！你可以直接使用 frame-extractor 命令。"
+>
+> 安装完成后，请添加环境变量
+> echo 'export PATH=$PATH:/Users/a1234/Library/Python/3.9/bin' >> ~/.zshrc
+> source ~/.zshrc
+> 
 > ```
 >
 > 安装完成后，可直接使用 `frame-extractor` 命令，无需 python src/frame_extractor.py ...
