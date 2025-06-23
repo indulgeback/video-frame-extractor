@@ -11,7 +11,7 @@ setup(
             "frame-extractor=video_frame_extractor.frame_extractor:main"
         ]
     },
-    author="你的名字",
+    author="LeviLiu",
     description="一个用于提取视频帧的命令行工具",
     url="https://github.com/indulgeback/video-frame-extractor",
     classifiers=[
