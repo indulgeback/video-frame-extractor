@@ -14,3 +14,5 @@ logs/
 # 输出文件
 output/
 video/
+
+.DS_Store
