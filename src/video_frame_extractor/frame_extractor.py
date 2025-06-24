@@ -7,6 +7,8 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import glob
+from PIL import Image
+import io
 
 def extract_frame(video_path: str, output_path: str, frame_number: int = 0, 
                   progress_callback=None) -> None:
@@ -180,6 +182,129 @@ def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bo
         except Exception as e:
             print(f"❌ 跳过 {rel_path}: {e}")
 
+def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = False, quality: int = 85) -> None:
+    """
+    递归遍历目录中的图片，进行无损压缩并转换为WebP格式
+    
+    参数:
+        input_dir: 输入图片目录
+        output_dir: 输出WebP图片目录
+        recursive: 是否递归遍历子目录
+        quality: WebP压缩质量（0-100，默认85）
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # 支持的图片格式
+    image_exts = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.gif"]
+    image_files = []
+    
+    if recursive:
+        # 递归遍历所有子目录
+        for root, dirs, files in os.walk(input_dir):
+            for ext in image_exts:
+                pattern = os.path.join(root, ext)
+                image_files.extend(glob.glob(pattern))
+    else:
+        # 只处理当前目录
+        for ext in image_exts:
+            image_files.extend(glob.glob(os.path.join(input_dir, ext)))
+    
+    if not image_files:
+        print(f"未找到图片文件: {input_dir}")
+        return
+    
+    print(f"找到 {len(image_files)} 个图片文件")
+    
+    def process_single_image(image_path: str) -> tuple:
+        """处理单个图片文件"""
+        try:
+            # 计算相对路径，用于在输出目录中保持相同的目录结构
+            rel_path = os.path.relpath(image_path, input_dir)
+            base = os.path.splitext(rel_path)[0]
+            
+            # 构建输出路径，保持目录结构
+            out_path = os.path.join(output_dir, f"{base}.webp")
+            
+            # 确保输出目录存在
+            Path(os.path.dirname(out_path)).mkdir(parents=True, exist_ok=True)
+            
+            # 打开并转换图片
+            with Image.open(image_path) as img:
+                # 转换为RGB模式（WebP不支持RGBA等模式）
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # 创建白色背景
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # 保存为WebP格式
+                img.save(out_path, 'WEBP', quality=quality, lossless=False)
+            
+            return True, rel_path, os.path.relpath(out_path, output_dir)
+        except Exception as e:
+            return False, rel_path, str(e)
+    
+    # 使用线程池并行处理
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = []
+        
+        # 创建进度条
+        with tqdm(total=len(image_files), desc="压缩转换图片") as pbar:
+            # 提交所有任务
+            for image_path in image_files:
+                future = executor.submit(process_single_image, image_path)
+                futures.append(future)
+            
+            # 处理结果
+            success_count = 0
+            for future in futures:
+                success, rel_path, result = future.result()
+                if success:
+                    print(f"✅ 已转换: {rel_path} -> {result}")
+                    success_count += 1
+                else:
+                    print(f"❌ 跳过 {rel_path}: {result}")
+                pbar.update(1)
+    
+    print(f"\n🎉 转换完成！成功转换 {success_count}/{len(image_files)} 个文件")
+
+def extract_first_frames_with_compression(input_dir: str, output_dir: str, recursive: bool = False, 
+                                        compress: bool = False, webp_quality: int = 85) -> None:
+    """
+    提取视频首帧并可选择性地进行压缩转换
+    
+    参数:
+        input_dir: 输入视频目录
+        output_dir: 输出图片目录
+        recursive: 是否递归遍历子目录
+        compress: 是否压缩转换为WebP
+        webp_quality: WebP压缩质量（0-100，默认85）
+    """
+    # 先提取首帧
+    extract_first_frames_from_dir(input_dir, output_dir, recursive)
+    
+    # 如果需要压缩转换
+    if compress:
+        print(f"\n🔄 开始压缩转换提取的图片...")
+        compress_images_to_webp(output_dir, output_dir, recursive, webp_quality)
+        
+        # 删除原始图片文件（非WebP格式）
+        if recursive:
+            for root, dirs, files in os.walk(output_dir):
+                for file in files:
+                    if not file.lower().endswith('.webp'):
+                        os.remove(os.path.join(root, file))
+        else:
+            for file in os.listdir(output_dir):
+                if not file.lower().endswith('.webp'):
+                    os.remove(os.path.join(output_dir, file))
+        
+        print("🧹 已清理原始图片文件，只保留WebP格式")
+
 def main():
     parser = argparse.ArgumentParser(description="基于 OpenCV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。")
     subparsers = parser.add_subparsers(dest='command', required=True, 
@@ -226,7 +351,16 @@ def main():
     dirfirst_parser.add_argument("-i", "--input_dir", required=True, help="输入视频目录")
     dirfirst_parser.add_argument("-o", "--output_dir", required=True, help="输出图片目录")
     dirfirst_parser.add_argument("-r", "--recursive", action="store_true", help="递归遍历子目录")
+    dirfirst_parser.add_argument("-c", "--compress", action="store_true", help="压缩转换为WebP格式")
+    dirfirst_parser.add_argument("--webp-quality", type=int, default=85, help="WebP压缩质量（0-100，默认85）")
     
+    # 图片压缩转换命令
+    compress_parser = subparsers.add_parser('compress', help="递归压缩目录中的图片为WebP格式")
+    compress_parser.add_argument("-i", "--input_dir", required=True, help="输入图片目录")
+    compress_parser.add_argument("-o", "--output_dir", required=True, help="输出WebP图片目录")
+    compress_parser.add_argument("-r", "--recursive", action="store_true", help="递归遍历子目录")
+    compress_parser.add_argument("-q", "--quality", type=int, default=85, help="WebP压缩质量（0-100，默认85）")
+
     args = parser.parse_args()
     
     try:
@@ -291,7 +425,11 @@ def main():
             batch_extract(args.input, frame_nums, args.output, args.workers)
             
         elif args.command == 'dirfirst':
-            extract_first_frames_from_dir(args.input_dir, args.output_dir, args.recursive)
+            extract_first_frames_with_compression(args.input_dir, args.output_dir, args.recursive, 
+                                                args.compress, args.webp_quality)
+            
+        elif args.command == 'compress':
+            compress_images_to_webp(args.input_dir, args.output_dir, args.recursive, args.quality)
             
     except Exception as e:
         print(f"❌ 错误: {str(e)}", file=sys.stderr)

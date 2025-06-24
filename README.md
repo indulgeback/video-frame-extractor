@@ -34,6 +34,9 @@ curl -sSL https://raw.githubusercontent.com/indulgeback/video-frame-extractor/ma
 - [x] 视频信息查看
 - [x] 多线程加速
 - [x] 兼容常见视频格式
+- [x] 跨平台支持（Windows/macOS/Linux）
+- [x] 图片压缩转换为 WebP 格式
+- [x] 递归目录处理
 
 ---
 
@@ -75,6 +78,25 @@ frame-extractor dirfirst -i videos_dir -o output_dir
 
 # 递归提取所有子目录下的视频首帧（保持目录结构）
 frame-extractor dirfirst -i videos_dir -o output_dir -r
+
+# 提取首帧并压缩转换为WebP格式
+frame-extractor dirfirst -i videos_dir -o output_dir -c
+
+# 递归提取首帧并压缩转换（指定WebP质量）
+frame-extractor dirfirst -i videos_dir -o output_dir -r -c --webp-quality 90
+```
+
+### 6. 图片压缩转换为 WebP 格式
+
+```bash
+# 压缩当前目录下的图片
+frame-extractor compress -i images_dir -o webp_dir
+
+# 递归压缩所有子目录下的图片（保持目录结构）
+frame-extractor compress -i images_dir -o webp_dir -r
+
+# 指定WebP压缩质量
+frame-extractor compress -i images_dir -o webp_dir -q 95
 ```
 
 ---
@@ -83,47 +105,58 @@ frame-extractor dirfirst -i videos_dir -o output_dir -r
 
 ### single（提取单帧）
 
-| 参数 | 说明 | 必需 | 备注 |
-|------|------|------|------|
-| -i, --input | 输入视频路径 | ✅ | |
-| -o, --output | 输出图像路径 |  | 默认自动生成 |
-| -f, --frame | 要提取的帧号 | 二选一 | 和-t互斥 |
-| -t, --time | 要提取的时间点（秒） | 二选一 | 和-f互斥 |
-| --quality | JPEG质量（0-100） |  | 默认95 |
+| 参数         | 说明                 | 必需   | 备注         |
+| ------------ | -------------------- | ------ | ------------ |
+| -i, --input  | 输入视频路径         | ✅     |              |
+| -o, --output | 输出图像路径         |        | 默认自动生成 |
+| -f, --frame  | 要提取的帧号         | 二选一 | 和-t 互斥    |
+| -t, --time   | 要提取的时间点（秒） | 二选一 | 和-f 互斥    |
+| --quality    | JPEG 质量（0-100）   |        | 默认 95      |
 
 ### batch（批量提取）
 
-| 参数 | 说明 | 必需 | 备注 |
-|------|------|------|------|
-| -i, --input | 输入视频路径 | ✅ | |
-| -o, --output | 输出目录 | ✅ | |
-| -s, --start | 起始帧号 | ✅ | |
-| -e, --end | 结束帧号 | ✅ | |
-| -d, --delta | 帧间隔 |  | 默认1 |
-| -w, --workers | 工作线程数 |  | 默认4 |
+| 参数          | 说明         | 必需 | 备注   |
+| ------------- | ------------ | ---- | ------ |
+| -i, --input   | 输入视频路径 | ✅   |        |
+| -o, --output  | 输出目录     | ✅   |        |
+| -s, --start   | 起始帧号     | ✅   |        |
+| -e, --end     | 结束帧号     | ✅   |        |
+| -d, --delta   | 帧间隔       |      | 默认 1 |
+| -w, --workers | 工作线程数   |      | 默认 4 |
 
 ### sample（采样提取）
 
-| 参数 | 说明 | 必需 | 备注 |
-|------|------|------|------|
-| -i, --input | 输入视频路径 | ✅ | |
-| -o, --output | 输出目录 | ✅ | |
-| -t, --interval | 采样间隔（秒） |  | 默认1.0 |
-| -w, --workers | 工作线程数 |  | 默认4 |
+| 参数           | 说明           | 必需 | 备注     |
+| -------------- | -------------- | ---- | -------- |
+| -i, --input    | 输入视频路径   | ✅   |          |
+| -o, --output   | 输出目录       | ✅   |          |
+| -t, --interval | 采样间隔（秒） |      | 默认 1.0 |
+| -w, --workers  | 工作线程数     |      | 默认 4   |
 
 ### info（视频信息）
 
-| 参数 | 说明 | 必需 | 备注 |
-|------|------|------|------|
-| -i, --input | 输入视频路径 | ✅ | |
+| 参数        | 说明         | 必需 | 备注 |
+| ----------- | ------------ | ---- | ---- |
+| -i, --input | 输入视频路径 | ✅   |      |
 
 ### dirfirst（批量目录首帧提取）
 
-| 参数 | 说明 | 必需 | 备注 |
-|------|------|------|------|
-| -i, --input_dir | 输入视频目录 | ✅ | |
-| -o, --output_dir | 输出图片目录 | ✅ | |
-| -r, --recursive | 递归遍历子目录 |  | 保持对等目录结构 |
+| 参数             | 说明                   | 必需 | 备注             |
+| ---------------- | ---------------------- | ---- | ---------------- |
+| -i, --input_dir  | 输入视频目录           | ✅   |                  |
+| -o, --output_dir | 输出图片目录           | ✅   |                  |
+| -r, --recursive  | 递归遍历子目录         |      | 保持对等目录结构 |
+| -c, --compress   | 压缩转换为 WebP        |      | 自动清理原始图片 |
+| --webp-quality   | WebP 压缩质量（0-100） |      | 默认 85          |
+
+### compress（图片压缩转换）
+
+| 参数             | 说明                   | 必需 | 备注             |
+| ---------------- | ---------------------- | ---- | ---------------- |
+| -i, --input_dir  | 输入图片目录           | ✅   |                  |
+| -o, --output_dir | 输出 WebP 图片目录     | ✅   |                  |
+| -r, --recursive  | 递归遍历子目录         |      | 保持对等目录结构 |
+| -q, --quality    | WebP 压缩质量（0-100） |      | 默认 85          |
 
 ---
 

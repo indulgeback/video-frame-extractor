@@ -2,10 +2,15 @@ from setuptools import setup, find_packages
 
 setup(
     name="video-frame-extractor",
-    version="0.1.0-beta",
+    version="0.1.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires=[],  # 如有依赖请补充
+    install_requires=[
+        "opencv-python",
+        "tqdm",
+        "numpy",
+        "Pillow>=8.0.0",  # 用于图片处理和WebP格式支持
+    ],
     entry_points={
         "console_scripts": [
             "frame-extractor=video_frame_extractor.frame_extractor:main"
@@ -18,6 +23,6 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
     ],
 ) 
