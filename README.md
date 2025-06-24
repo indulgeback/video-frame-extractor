@@ -70,7 +70,11 @@ frame-extractor info -i video.mp4
 ### 5. 批量提取目录下所有视频的首帧
 
 ```bash
+# 提取当前目录下的视频首帧
 frame-extractor dirfirst -i videos_dir -o output_dir
+
+# 递归提取所有子目录下的视频首帧（保持目录结构）
+frame-extractor dirfirst -i videos_dir -o output_dir -r
 ```
 
 ---
@@ -119,6 +123,7 @@ frame-extractor dirfirst -i videos_dir -o output_dir
 |------|------|------|------|
 | -i, --input_dir | 输入视频目录 | ✅ | |
 | -o, --output_dir | 输出图片目录 | ✅ | |
+| -r, --recursive | 递归遍历子目录 |  | 保持对等目录结构 |
 
 ---
 

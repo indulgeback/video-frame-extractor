@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="video-frame-extractor",
-    version="0.1.0",
+    version="0.1.0-beta",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[],  # 如有依赖请补充
@@ -18,5 +18,6 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        "Development Status :: 4 - Beta",
     ],
 ) 

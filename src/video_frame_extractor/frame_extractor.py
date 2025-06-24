@@ -129,27 +129,56 @@ def extract_by_time(video_path: str, output_path: str, time_sec: float) -> None:
     extract_frame(video_path, output_path, frame_number)
     print(f"✅ 在时间点 {time_sec:.2f}s 提取第 {frame_number} 帧")
 
-def extract_first_frames_from_dir(input_dir: str, output_dir: str) -> None:
+def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bool = False) -> None:
     """
     批量提取目录下所有视频的首帧，输出到指定目录，图片文件名与原视频名一致。
+    支持递归遍历子目录。
+    
+    参数:
+        input_dir: 输入视频目录
+        output_dir: 输出图片目录
+        recursive: 是否递归遍历子目录
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
     # 支持常见视频格式
     exts = ["*.mp4", "*.avi", "*.mov", "*.mkv", "*.flv", "*.wmv"]
     video_files = []
-    for ext in exts:
-        video_files.extend(glob.glob(os.path.join(input_dir, ext)))
+    
+    if recursive:
+        # 递归遍历所有子目录
+        for root, dirs, files in os.walk(input_dir):
+            for ext in exts:
+                # 使用 glob 模式匹配当前目录下的视频文件
+                pattern = os.path.join(root, ext)
+                video_files.extend(glob.glob(pattern))
+    else:
+        # 只处理当前目录
+        for ext in exts:
+            video_files.extend(glob.glob(os.path.join(input_dir, ext)))
+    
     if not video_files:
         print(f"未找到视频文件: {input_dir}")
         return
+    
+    print(f"找到 {len(video_files)} 个视频文件")
+    
     for video_path in video_files:
-        base = os.path.splitext(os.path.basename(video_path))[0]
+        # 计算相对路径，用于在输出目录中保持相同的目录结构
+        rel_path = os.path.relpath(video_path, input_dir)
+        base = os.path.splitext(rel_path)[0]
+        
+        # 构建输出路径，保持目录结构
         out_path = os.path.join(output_dir, f"{base}.jpg")
+        
+        # 确保输出目录存在
+        Path(os.path.dirname(out_path)).mkdir(parents=True, exist_ok=True)
+        
         try:
             extract_frame(video_path, out_path, 0)
-            print(f"已提取: {video_path} -> {out_path}")
+            print(f"✅ 已提取: {rel_path} -> {os.path.relpath(out_path, output_dir)}")
         except Exception as e:
-            print(f"跳过 {video_path}: {e}")
+            print(f"❌ 跳过 {rel_path}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="基于 OpenCV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。")
@@ -196,6 +225,7 @@ def main():
     dirfirst_parser = subparsers.add_parser('dirfirst', help="批量提取目录下所有视频的首帧")
     dirfirst_parser.add_argument("-i", "--input_dir", required=True, help="输入视频目录")
     dirfirst_parser.add_argument("-o", "--output_dir", required=True, help="输出图片目录")
+    dirfirst_parser.add_argument("-r", "--recursive", action="store_true", help="递归遍历子目录")
     
     args = parser.parse_args()
     
@@ -261,7 +291,7 @@ def main():
             batch_extract(args.input, frame_nums, args.output, args.workers)
             
         elif args.command == 'dirfirst':
-            extract_first_frames_from_dir(args.input_dir, args.output_dir)
+            extract_first_frames_from_dir(args.input_dir, args.output_dir, args.recursive)
             
     except Exception as e:
         print(f"❌ 错误: {str(e)}", file=sys.stderr)
