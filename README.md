@@ -84,6 +84,9 @@ frame-extractor dirfirst -i videos_dir -o output_dir -c
 
 # 递归提取首帧并压缩转换（指定WebP质量）
 frame-extractor dirfirst -i videos_dir -o output_dir -r -c --webp-quality 90
+
+# 递归提取首帧并压缩，控制文件大小在50-100KB
+frame-extractor dirfirst -i video -o output -r -c --min-size 50 --max-size 100
 ```
 
 ### 6. 图片压缩转换为 WebP 格式
@@ -97,6 +100,12 @@ frame-extractor compress -i images_dir -o webp_dir -r
 
 # 指定WebP压缩质量
 frame-extractor compress -i images_dir -o webp_dir -q 95
+
+# 限制文件大小（自动调整质量，确保每个文件不超过100KB）
+frame-extractor compress -i images_dir -o webp_dir --max-size 100
+
+# 限制文件大小范围（50KB-200KB之间）
+frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 ```
 
 ---
@@ -141,22 +150,26 @@ frame-extractor compress -i images_dir -o webp_dir -q 95
 
 ### dirfirst（批量目录首帧提取）
 
-| 参数             | 说明                   | 必需 | 备注             |
-| ---------------- | ---------------------- | ---- | ---------------- |
-| -i, --input_dir  | 输入视频目录           | ✅   |                  |
-| -o, --output_dir | 输出图片目录           | ✅   |                  |
-| -r, --recursive  | 递归遍历子目录         |      | 保持对等目录结构 |
-| -c, --compress   | 压缩转换为 WebP        |      | 自动清理原始图片 |
-| --webp-quality   | WebP 压缩质量（0-100） |      | 默认 85          |
+| 参数             | 说明                   | 必需 | 备注                   |
+| ---------------- | ---------------------- | ---- | ---------------------- |
+| -i, --input_dir  | 输入视频目录           | ✅   |                        |
+| -o, --output_dir | 输出图片目录           | ✅   |                        |
+| -r, --recursive  | 递归遍历子目录         |      | 保持对等目录结构       |
+| -c, --compress   | 压缩转换为 WebP        |      | 自动清理原始图片       |
+| --webp-quality   | WebP 压缩质量（0-100） |      | 默认 85                |
+| --max-size       | 最大文件大小（KB）     |      | 默认 100，自动调整质量 |
+| --min-size       | 最小文件大小（KB）     |      | 默认 50，自动调整质量  |
 
 ### compress（图片压缩转换）
 
-| 参数             | 说明                   | 必需 | 备注             |
-| ---------------- | ---------------------- | ---- | ---------------- |
-| -i, --input_dir  | 输入图片目录           | ✅   |                  |
-| -o, --output_dir | 输出 WebP 图片目录     | ✅   |                  |
-| -r, --recursive  | 递归遍历子目录         |      | 保持对等目录结构 |
-| -q, --quality    | WebP 压缩质量（0-100） |      | 默认 85          |
+| 参数             | 说明                   | 必需 | 备注                         |
+| ---------------- | ---------------------- | ---- | ---------------------------- |
+| -i, --input_dir  | 输入图片目录           | ✅   |                              |
+| -o, --output_dir | 输出 WebP 图片目录     | ✅   |                              |
+| -r, --recursive  | 递归遍历子目录         |      | 保持对等目录结构             |
+| -q, --quality    | WebP 压缩质量（0-100） |      | 默认 85                      |
+| --max-size       | 最大文件大小（KB）     |      | 默认 100，超过会自动降低质量 |
+| --min-size       | 最小文件大小（KB）     |      | 默认 50，小于会自动提高质量  |
 
 ---
 
@@ -165,6 +178,7 @@ frame-extractor compress -i images_dir -o webp_dir -q 95
 - opencv-python
 - tqdm
 - numpy
+- Pillow（图片处理和 WebP 格式支持）
 
 ---
 

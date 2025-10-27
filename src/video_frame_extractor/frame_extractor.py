@@ -182,20 +182,23 @@ def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bo
         except Exception as e:
             print(f"❌ 跳过 {rel_path}: {e}")
 
-def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = False, quality: int = 85) -> None:
+def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = False, quality: int = 85, 
+                           max_size_kb: int = None, min_size_kb: int = None) -> None:
     """
-    递归遍历目录中的图片，进行无损压缩并转换为WebP格式
+    递归遍历目录中的图片，进行压缩并转换为WebP格式
     
     参数:
         input_dir: 输入图片目录
         output_dir: 输出WebP图片目录
         recursive: 是否递归遍历子目录
         quality: WebP压缩质量（0-100，默认85）
+        max_size_kb: 最大文件大小（KB），如果超过会自动降低质量
+        min_size_kb: 最小文件大小（KB），如果小于会自动提高质量
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    # 支持的图片格式
-    image_exts = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.gif"]
+    # 支持的图片格式（包括 WebP 自身，支持重新压缩）
+    image_exts = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.gif", "*.webp"]
     image_files = []
     
     if recursive:
@@ -214,6 +217,8 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
         return
     
     print(f"找到 {len(image_files)} 个图片文件")
+    if max_size_kb:
+        print(f"文件大小限制: 最大 {max_size_kb}KB" + (f", 最小 {min_size_kb}KB" if min_size_kb else ""))
     
     def process_single_image(image_path: str) -> tuple:
         """处理单个图片文件"""
@@ -230,21 +235,68 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
             
             # 打开并转换图片
             with Image.open(image_path) as img:
-                # 转换为RGB模式（WebP不支持RGBA等模式）
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    # 创建白色背景
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-                    img = background
-                elif img.mode != 'RGB':
+                # WebP 支持 RGBA（透明通道），无需强制转换
+                # 只对不支持的模式进行转换
+                if img.mode == 'P':
+                    # 调色板模式转换为RGBA（如果有透明度）或RGB
+                    img = img.convert('RGBA' if 'transparency' in img.info else 'RGB')
+                elif img.mode == 'LA':
+                    # 灰度+透明度转为RGBA
+                    img = img.convert('RGBA')
+                elif img.mode not in ('RGB', 'RGBA'):
+                    # 其他模式转为RGB
                     img = img.convert('RGB')
                 
-                # 保存为WebP格式
-                img.save(out_path, 'WEBP', quality=quality, lossless=False)
+                # 如果设置了文件大小限制，动态调整质量
+                if max_size_kb or min_size_kb:
+                    current_quality = quality
+                    attempts = 0
+                    max_attempts = 20
+                    
+                    while attempts < max_attempts:
+                        # 保存到内存缓冲区测试文件大小
+                        buffer = io.BytesIO()
+                        img.save(buffer, 'WEBP', quality=current_quality, lossless=False)
+                        file_size_kb = buffer.tell() / 1024
+                        
+                        # 检查是否符合大小要求
+                        too_large = max_size_kb and file_size_kb > max_size_kb
+                        too_small = min_size_kb and file_size_kb < min_size_kb and current_quality < 95
+                        
+                        if not too_large and not too_small:
+                            # 符合要求，保存到文件
+                            with open(out_path, 'wb') as f:
+                                f.write(buffer.getvalue())
+                            break
+                        
+                        # 调整质量
+                        if too_large:
+                            # 文件太大，降低质量
+                            if current_quality <= 10:
+                                # 质量已经很低了，保存当前结果
+                                with open(out_path, 'wb') as f:
+                                    f.write(buffer.getvalue())
+                                break
+                            current_quality = max(10, current_quality - 5)
+                        elif too_small:
+                            # 文件太小，提高质量
+                            if current_quality >= 95:
+                                # 质量已经很高了，保存当前结果
+                                with open(out_path, 'wb') as f:
+                                    f.write(buffer.getvalue())
+                                break
+                            current_quality = min(95, current_quality + 5)
+                        
+                        attempts += 1
+                    
+                    file_size_info = f" ({file_size_kb:.1f}KB, quality={current_quality})"
+                else:
+                    # 无大小限制，直接保存
+                    img.save(out_path, 'WEBP', quality=quality, lossless=False)
+                    file_size_kb = os.path.getsize(out_path) / 1024
+                    file_size_info = f" ({file_size_kb:.1f}KB)"
             
-            return True, rel_path, os.path.relpath(out_path, output_dir)
+            return True, rel_path, os.path.relpath(out_path, output_dir) + file_size_info
         except Exception as e:
             return False, rel_path, str(e)
     
@@ -273,7 +325,8 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
     print(f"\n🎉 转换完成！成功转换 {success_count}/{len(image_files)} 个文件")
 
 def extract_first_frames_with_compression(input_dir: str, output_dir: str, recursive: bool = False, 
-                                        compress: bool = False, webp_quality: int = 85) -> None:
+                                        compress: bool = False, webp_quality: int = 85,
+                                        max_size_kb: int = None, min_size_kb: int = None) -> None:
     """
     提取视频首帧并可选择性地进行压缩转换
     
@@ -283,6 +336,8 @@ def extract_first_frames_with_compression(input_dir: str, output_dir: str, recur
         recursive: 是否递归遍历子目录
         compress: 是否压缩转换为WebP
         webp_quality: WebP压缩质量（0-100，默认85）
+        max_size_kb: 最大文件大小（KB）
+        min_size_kb: 最小文件大小（KB）
     """
     # 先提取首帧
     extract_first_frames_from_dir(input_dir, output_dir, recursive)
@@ -290,7 +345,7 @@ def extract_first_frames_with_compression(input_dir: str, output_dir: str, recur
     # 如果需要压缩转换
     if compress:
         print(f"\n🔄 开始压缩转换提取的图片...")
-        compress_images_to_webp(output_dir, output_dir, recursive, webp_quality)
+        compress_images_to_webp(output_dir, output_dir, recursive, webp_quality, max_size_kb, min_size_kb)
         
         # 删除原始图片文件（非WebP格式）
         if recursive:
@@ -353,6 +408,8 @@ def main():
     dirfirst_parser.add_argument("-r", "--recursive", action="store_true", help="递归遍历子目录")
     dirfirst_parser.add_argument("-c", "--compress", action="store_true", help="压缩转换为WebP格式")
     dirfirst_parser.add_argument("--webp-quality", type=int, default=85, help="WebP压缩质量（0-100，默认85）")
+    dirfirst_parser.add_argument("--max-size", type=int, default=100, help="最大文件大小（KB，默认100）")
+    dirfirst_parser.add_argument("--min-size", type=int, default=50, help="最小文件大小（KB，默认50）")
     
     # 图片压缩转换命令
     compress_parser = subparsers.add_parser('compress', help="递归压缩目录中的图片为WebP格式")
@@ -360,6 +417,8 @@ def main():
     compress_parser.add_argument("-o", "--output_dir", required=True, help="输出WebP图片目录")
     compress_parser.add_argument("-r", "--recursive", action="store_true", help="递归遍历子目录")
     compress_parser.add_argument("-q", "--quality", type=int, default=85, help="WebP压缩质量（0-100，默认85）")
+    compress_parser.add_argument("--max-size", type=int, default=100, help="最大文件大小（KB，默认100），超过会自动降低质量")
+    compress_parser.add_argument("--min-size", type=int, default=50, help="最小文件大小（KB，默认50），小于会自动提高质量")
 
     args = parser.parse_args()
     
@@ -425,11 +484,16 @@ def main():
             batch_extract(args.input, frame_nums, args.output, args.workers)
             
         elif args.command == 'dirfirst':
+            max_size = getattr(args, 'max_size', None)
+            min_size = getattr(args, 'min_size', None)
             extract_first_frames_with_compression(args.input_dir, args.output_dir, args.recursive, 
-                                                args.compress, args.webp_quality)
+                                                args.compress, args.webp_quality, max_size, min_size)
             
         elif args.command == 'compress':
-            compress_images_to_webp(args.input_dir, args.output_dir, args.recursive, args.quality)
+            max_size = getattr(args, 'max_size', None)
+            min_size = getattr(args, 'min_size', None)
+            compress_images_to_webp(args.input_dir, args.output_dir, args.recursive, args.quality, 
+                                  max_size, min_size)
             
     except Exception as e:
         print(f"❌ 错误: {str(e)}", file=sys.stderr)
