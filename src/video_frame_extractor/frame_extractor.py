@@ -10,15 +10,16 @@ import glob
 from PIL import Image
 import io
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 def show_version():
     """显示版本和依赖信息"""
+    import tqdm as tqdm_module
     print(f"video-frame-extractor: {__version__}")
     print(f"PyAV: {av.__version__}")
     print(f"Pillow: {Image.__version__}")
-    print(f"tqdm: {tqdm.__version__}")
+    print(f"tqdm: {tqdm_module.__version__}")
     print(f"Python: {sys.version.split()[0]}")
 
 
