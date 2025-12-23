@@ -10,6 +10,7 @@ setup(
         "tqdm",
         "Pillow>=8.0.0",  # 用于图片处理和WebP格式支持
     ],
+    python_requires=">=3.8",
     entry_points={
         "console_scripts": [
             "frame-extractor=video_frame_extractor.frame_extractor:main"
@@ -19,7 +20,7 @@ setup(
     description="一个用于提取视频帧的命令行工具",
     url="https://github.com/indulgeback/video-frame-extractor",
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Development Status :: 5 - Production/Stable",

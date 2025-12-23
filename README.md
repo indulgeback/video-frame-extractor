@@ -2,7 +2,7 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/indulgeback/video-frame-extractor?style=social)](https://github.com/indulgeback/video-frame-extractor)
 [![License](https://img.shields.io/github/license/indulgeback/video-frame-extractor)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.7%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
 
 ---
 
