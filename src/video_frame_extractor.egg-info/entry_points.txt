@@ -1,2 +1,2 @@
 [console_scripts]
-frame-extractor = frame_extractor:main
+frame-extractor = video_frame_extractor.frame_extractor:main

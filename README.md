@@ -6,7 +6,7 @@
 
 ---
 
-> 基于 OpenCV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。
+> 基于 PyAV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。
 
 ---
 
@@ -16,12 +16,12 @@
 curl -sSL https://raw.githubusercontent.com/indulgeback/video-frame-extractor/main/install.sh | bash
 ```
 
-脚本会自动下载仓库到 `~/.video-frame-extractor` 并用 pip3 安装。
+脚本会自动下载仓库到 `~/.video-frame-extractor`，创建虚拟环境并安装。
 
-> **注意**：如果安装后提示 `frame-extractor` 命令找不到（command not found），请将 pip3 的 user bin 路径加入 PATH，例如：
+> **注意**：安装后请确保 `~/.local/bin` 在你的 PATH 中：
 >
 > ```bash
-> echo 'export PATH="$HOME/Library/Python/3.9/bin:$PATH"' >> ~/.zshrc
+> echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 > source ~/.zshrc
 > ```
 
@@ -41,6 +41,12 @@ curl -sSL https://raw.githubusercontent.com/indulgeback/video-frame-extractor/ma
 ---
 
 ## 🛠️ 命令行用法示例
+
+### 查看版本信息
+
+```bash
+frame-extractor -v
+```
 
 ### 1. 提取单帧（按帧号或时间点）
 
@@ -112,6 +118,12 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 
 ## 📑 命令参数一览
 
+### 全局参数
+
+| 参数          | 说明               | 备注 |
+| ------------- | ------------------ | ---- |
+| -v, --version | 显示版本和依赖信息 |      |
+
 ### single（提取单帧）
 
 | 参数         | 说明                 | 必需   | 备注         |
@@ -175,9 +187,8 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 
 ## 📦 依赖
 
-- opencv-python
+- PyAV（内置 FFmpeg，无需额外安装）
 - tqdm
-- numpy
 - Pillow（图片处理和 WebP 格式支持）
 
 ---
@@ -185,11 +196,11 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 ## ❓ FAQ
 
 - **Q: 安装后命令找不到？**  
-  A: 请将 pip3 的 user bin 路径加入 PATH，见上方安装说明。
+  A: 请确保 `~/.local/bin` 在你的 PATH 中，见上方安装说明。
 - **Q: 支持哪些视频格式？**  
   A: 支持 mp4、avi、mov、mkv、flv、wmv 等常见格式。
 - **Q: 如何卸载？**  
-  A: 运行 `pip3 uninstall video-frame-extractor`，可手动删除 `~/.video-frame-extractor` 目录。
+  A: 删除 `~/.video-frame-extractor` 目录和 `~/.local/bin/frame-extractor` 文件即可。
 - **Q: 如何贡献代码？**  
   A: 欢迎 PR 或 issue！
 

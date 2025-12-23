@@ -1,5 +1,5 @@
 # src/frame_extractor.py
-import cv2
+import av
 import argparse
 import os
 import sys
@@ -10,7 +10,53 @@ import glob
 from PIL import Image
 import io
 
-def extract_frame(video_path: str, output_path: str, frame_number: int = 0, 
+__version__ = "0.2.0"
+
+
+def show_version():
+    """显示版本和依赖信息"""
+    print(f"video-frame-extractor: {__version__}")
+    print(f"PyAV: {av.__version__}")
+    print(f"Pillow: {Image.__version__}")
+    print(f"tqdm: {tqdm.__version__}")
+    print(f"Python: {sys.version.split()[0]}")
+
+
+def get_video_info(video_path: str) -> dict:
+    """
+    获取视频信息
+    
+    参数:
+        video_path: 视频文件路径
+    返回:
+        包含 fps, total_frames, width, height, duration 的字典
+    """
+    try:
+        container = av.open(video_path)
+        stream = container.streams.video[0]
+        
+        fps = float(stream.average_rate) if stream.average_rate else 0
+        total_frames = stream.frames if stream.frames else 0
+        duration = float(stream.duration * stream.time_base) if stream.duration else 0
+        
+        # 如果无法获取总帧数，通过时长和帧率计算
+        if total_frames == 0 and fps > 0 and duration > 0:
+            total_frames = int(duration * fps)
+        
+        info = {
+            'fps': fps,
+            'total_frames': total_frames,
+            'width': stream.width,
+            'height': stream.height,
+            'duration': duration
+        }
+        container.close()
+        return info
+    except Exception as e:
+        raise ValueError(f"无法读取视频信息: {video_path}\n{e}")
+
+
+def extract_frame(video_path: str, output_path: str, frame_number: int = 0,
                   progress_callback=None) -> None:
     """
     从视频中提取指定帧并保存为图像
@@ -19,46 +65,48 @@ def extract_frame(video_path: str, output_path: str, frame_number: int = 0,
         video_path: 输入视频文件路径
         output_path: 输出图像文件路径
         frame_number: 要提取的帧号
-        progress_callback: 进度回调函数，用于显示进度
+        progress_callback: 进度回调函数
     """
-    # 兼容中文路径
-    cap = cv2.VideoCapture(video_path)
+    info = get_video_info(video_path)
     
-    if not cap.isOpened():
-        raise ValueError(f"无法打开视频文件: {video_path}")
-    
-    # 获取视频元信息
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    duration = total_frames / fps if fps > 0 else 0
-    
-    # 验证帧号
-    if frame_number >= total_frames:
-        cap.release()
-        raise ValueError(f"帧号 {frame_number} 超出范围 (总帧数: {total_frames})")
-    
-    # 设置读取位置
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-    
-    # 读取帧
-    ret, frame = cap.read()
-    cap.release()
-    
-    if not ret:
-        raise ValueError(f"无法读取帧 {frame_number}")
+    if info['total_frames'] > 0 and frame_number >= info['total_frames']:
+        raise ValueError(f"帧号 {frame_number} 超出范围 (总帧数: {info['total_frames']})")
     
     # 创建输出目录
     output_dir = os.path.dirname(output_path)
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    if output_dir:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    # 保存帧
-    cv2.imwrite(output_path, frame)
+    try:
+        container = av.open(video_path)
+        stream = container.streams.video[0]
+        
+        # 计算目标时间戳并 seek
+        if info['fps'] > 0:
+            target_time = frame_number / info['fps']
+            # 转换为流的时间基准
+            target_pts = int(target_time / stream.time_base)
+            container.seek(target_pts, stream=stream)
+        
+        # 解码帧
+        current_frame = 0
+        for frame in container.decode(video=0):
+            if current_frame == 0:  # seek 后的第一帧
+                img = frame.to_image()
+                img.save(output_path, quality=95)
+                break
+            current_frame += 1
+        
+        container.close()
+    except Exception as e:
+        raise ValueError(f"提取帧失败: {e}")
     
-    # 回调进度
     if progress_callback:
-        progress_callback(frame_number, total_frames)
+        progress_callback(frame_number, info['total_frames'])
 
-def batch_extract(video_path: str, frame_nums: list, output_dir: str, 
+
+
+def batch_extract(video_path: str, frame_nums: list, output_dir: str,
                   max_workers: int = 4) -> None:
     """
     批量提取多个帧（支持多线程）
@@ -69,39 +117,35 @@ def batch_extract(video_path: str, frame_nums: list, output_dir: str,
         output_dir: 输出目录
         max_workers: 最大工作线程数
     """
-    # 创建输出目录
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    # 生成输出路径列表
     output_paths = [
         os.path.join(output_dir, f"frame_{frame_num}.jpg")
         for frame_num in frame_nums
     ]
     
-    # 使用线程池并行处理
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         
-        # 创建进度条
         with tqdm(total=len(frame_nums), desc="提取帧") as pbar:
-            # 更新进度的回调函数
             def update_progress(current, total):
                 pbar.update(1)
             
-            # 提交所有任务
             for frame_num, output_path in zip(frame_nums, output_paths):
                 future = executor.submit(
-                    extract_frame, 
-                    video_path, 
-                    output_path, 
+                    extract_frame,
+                    video_path,
+                    output_path,
                     frame_num,
                     update_progress if max_workers == 1 else None
                 )
                 futures.append(future)
             
-            # 等待所有任务完成
             for future in futures:
-                future.result()  # 获取结果，抛出可能的异常
+                future.result()
+                if max_workers > 1:
+                    pbar.update(1)
+
 
 def extract_by_time(video_path: str, output_path: str, time_sec: float) -> None:
     """
@@ -112,24 +156,32 @@ def extract_by_time(video_path: str, output_path: str, time_sec: float) -> None:
         output_path: 输出图像文件路径
         time_sec: 时间点（秒）
     """
-    # 打开视频获取FPS
-    cap = cv2.VideoCapture(video_path)
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    if not cap.isOpened():
-        raise ValueError(f"无法打开视频文件: {video_path}")
-    
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    cap.release()
-    
-    if fps <= 0:
-        raise ValueError("无法获取视频帧率")
-    
-    # 计算对应的帧号
-    frame_number = int(time_sec * fps)
-    
-    # 提取帧
-    extract_frame(video_path, output_path, frame_number)
-    print(f"✅ 在时间点 {time_sec:.2f}s 提取第 {frame_number} 帧")
+    try:
+        container = av.open(video_path)
+        stream = container.streams.video[0]
+        
+        # 转换为流的时间基准并 seek
+        target_pts = int(time_sec / stream.time_base)
+        container.seek(target_pts, stream=stream)
+        
+        # 解码第一帧
+        for frame in container.decode(video=0):
+            img = frame.to_image()
+            img.save(output_path, quality=95)
+            break
+        
+        container.close()
+        
+        info = get_video_info(video_path)
+        frame_number = int(time_sec * info['fps'])
+        print(f"✅ 在时间点 {time_sec:.2f}s 提取第 {frame_number} 帧")
+    except Exception as e:
+        raise ValueError(f"提取帧失败: {e}")
+
 
 def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bool = False) -> None:
     """
@@ -143,19 +195,15 @@ def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bo
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    # 支持常见视频格式
     exts = ["*.mp4", "*.avi", "*.mov", "*.mkv", "*.flv", "*.wmv"]
     video_files = []
     
     if recursive:
-        # 递归遍历所有子目录
         for root, dirs, files in os.walk(input_dir):
             for ext in exts:
-                # 使用 glob 模式匹配当前目录下的视频文件
                 pattern = os.path.join(root, ext)
                 video_files.extend(glob.glob(pattern))
     else:
-        # 只处理当前目录
         for ext in exts:
             video_files.extend(glob.glob(os.path.join(input_dir, ext)))
     
@@ -166,14 +214,9 @@ def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bo
     print(f"找到 {len(video_files)} 个视频文件")
     
     for video_path in video_files:
-        # 计算相对路径，用于在输出目录中保持相同的目录结构
         rel_path = os.path.relpath(video_path, input_dir)
         base = os.path.splitext(rel_path)[0]
-        
-        # 构建输出路径，保持目录结构
         out_path = os.path.join(output_dir, f"{base}.jpg")
-        
-        # 确保输出目录存在
         Path(os.path.dirname(out_path)).mkdir(parents=True, exist_ok=True)
         
         try:
@@ -182,7 +225,9 @@ def extract_first_frames_from_dir(input_dir: str, output_dir: str, recursive: bo
         except Exception as e:
             print(f"❌ 跳过 {rel_path}: {e}")
 
-def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = False, quality: int = 85, 
+
+
+def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = False, quality: int = 85,
                            max_size_kb: int = None, min_size_kb: int = None) -> None:
     """
     递归遍历目录中的图片，进行压缩并转换为WebP格式
@@ -197,18 +242,15 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    # 支持的图片格式（包括 WebP 自身，支持重新压缩）
     image_exts = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.gif", "*.webp"]
     image_files = []
     
     if recursive:
-        # 递归遍历所有子目录
         for root, dirs, files in os.walk(input_dir):
             for ext in image_exts:
                 pattern = os.path.join(root, ext)
                 image_files.extend(glob.glob(pattern))
     else:
-        # 只处理当前目录
         for ext in image_exts:
             image_files.extend(glob.glob(os.path.join(input_dir, ext)))
     
@@ -223,65 +265,45 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
     def process_single_image(image_path: str) -> tuple:
         """处理单个图片文件"""
         try:
-            # 计算相对路径，用于在输出目录中保持相同的目录结构
             rel_path = os.path.relpath(image_path, input_dir)
             base = os.path.splitext(rel_path)[0]
-            
-            # 构建输出路径，保持目录结构
             out_path = os.path.join(output_dir, f"{base}.webp")
-            
-            # 确保输出目录存在
             Path(os.path.dirname(out_path)).mkdir(parents=True, exist_ok=True)
             
-            # 打开并转换图片
             with Image.open(image_path) as img:
-                # WebP 支持 RGBA（透明通道），无需强制转换
-                # 只对不支持的模式进行转换
                 if img.mode == 'P':
-                    # 调色板模式转换为RGBA（如果有透明度）或RGB
                     img = img.convert('RGBA' if 'transparency' in img.info else 'RGB')
                 elif img.mode == 'LA':
-                    # 灰度+透明度转为RGBA
                     img = img.convert('RGBA')
                 elif img.mode not in ('RGB', 'RGBA'):
-                    # 其他模式转为RGB
                     img = img.convert('RGB')
                 
-                # 如果设置了文件大小限制，动态调整质量
                 if max_size_kb or min_size_kb:
                     current_quality = quality
                     attempts = 0
                     max_attempts = 20
                     
                     while attempts < max_attempts:
-                        # 保存到内存缓冲区测试文件大小
                         buffer = io.BytesIO()
                         img.save(buffer, 'WEBP', quality=current_quality, lossless=False)
                         file_size_kb = buffer.tell() / 1024
                         
-                        # 检查是否符合大小要求
                         too_large = max_size_kb and file_size_kb > max_size_kb
                         too_small = min_size_kb and file_size_kb < min_size_kb and current_quality < 95
                         
                         if not too_large and not too_small:
-                            # 符合要求，保存到文件
                             with open(out_path, 'wb') as f:
                                 f.write(buffer.getvalue())
                             break
                         
-                        # 调整质量
                         if too_large:
-                            # 文件太大，降低质量
                             if current_quality <= 10:
-                                # 质量已经很低了，保存当前结果
                                 with open(out_path, 'wb') as f:
                                     f.write(buffer.getvalue())
                                 break
                             current_quality = max(10, current_quality - 5)
                         elif too_small:
-                            # 文件太小，提高质量
                             if current_quality >= 95:
-                                # 质量已经很高了，保存当前结果
                                 with open(out_path, 'wb') as f:
                                     f.write(buffer.getvalue())
                                 break
@@ -291,7 +313,6 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
                     
                     file_size_info = f" ({file_size_kb:.1f}KB, quality={current_quality})"
                 else:
-                    # 无大小限制，直接保存
                     img.save(out_path, 'WEBP', quality=quality, lossless=False)
                     file_size_kb = os.path.getsize(out_path) / 1024
                     file_size_info = f" ({file_size_kb:.1f}KB)"
@@ -300,18 +321,14 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
         except Exception as e:
             return False, rel_path, str(e)
     
-    # 使用线程池并行处理
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
         
-        # 创建进度条
         with tqdm(total=len(image_files), desc="压缩转换图片") as pbar:
-            # 提交所有任务
             for image_path in image_files:
                 future = executor.submit(process_single_image, image_path)
                 futures.append(future)
             
-            # 处理结果
             success_count = 0
             for future in futures:
                 success, rel_path, result = future.result()
@@ -324,7 +341,9 @@ def compress_images_to_webp(input_dir: str, output_dir: str, recursive: bool = F
     
     print(f"\n🎉 转换完成！成功转换 {success_count}/{len(image_files)} 个文件")
 
-def extract_first_frames_with_compression(input_dir: str, output_dir: str, recursive: bool = False, 
+
+
+def extract_first_frames_with_compression(input_dir: str, output_dir: str, recursive: bool = False,
                                         compress: bool = False, webp_quality: int = 85,
                                         max_size_kb: int = None, min_size_kb: int = None) -> None:
     """
@@ -339,15 +358,12 @@ def extract_first_frames_with_compression(input_dir: str, output_dir: str, recur
         max_size_kb: 最大文件大小（KB）
         min_size_kb: 最小文件大小（KB）
     """
-    # 先提取首帧
     extract_first_frames_from_dir(input_dir, output_dir, recursive)
     
-    # 如果需要压缩转换
     if compress:
         print(f"\n🔄 开始压缩转换提取的图片...")
         compress_images_to_webp(output_dir, output_dir, recursive, webp_quality, max_size_kb, min_size_kb)
         
-        # 删除原始图片文件（非WebP格式）
         if recursive:
             for root, dirs, files in os.walk(output_dir):
                 for file in files:
@@ -360,9 +376,11 @@ def extract_first_frames_with_compression(input_dir: str, output_dir: str, recur
         
         print("🧹 已清理原始图片文件，只保留WebP格式")
 
+
 def main():
-    parser = argparse.ArgumentParser(description="基于 OpenCV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。")
-    subparsers = parser.add_subparsers(dest='command', required=True, 
+    parser = argparse.ArgumentParser(description="基于 PyAV 的命令行视频帧提取工具，支持单帧、批量、采样提取及视频信息查看。")
+    parser.add_argument("-v", "--version", action="store_true", help="显示版本和依赖信息")
+    subparsers = parser.add_subparsers(dest='command',
                                         help="可用命令")
     
     # 单帧提取命令
@@ -372,29 +390,29 @@ def main():
     group = single_parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-f", "--frame", type=int, help="要提取的帧号")
     group.add_argument("-t", "--time", type=float, help="要提取的时间点（秒）")
-    single_parser.add_argument("--quality", type=int, default=95, 
+    single_parser.add_argument("--quality", type=int, default=95,
                               help="JPEG质量（0-100，默认95）")
     
     # 批量提取命令
     batch_parser = subparsers.add_parser('batch', help="批量提取多帧")
     batch_parser.add_argument("-i", "--input", required=True, help="输入视频路径")
     batch_parser.add_argument("-o", "--output", required=True, help="输出目录")
-    batch_parser.add_argument("-s", "--start", type=int, required=True, 
+    batch_parser.add_argument("-s", "--start", type=int, required=True,
                              help="起始帧号")
-    batch_parser.add_argument("-e", "--end", type=int, required=True, 
+    batch_parser.add_argument("-e", "--end", type=int, required=True,
                              help="结束帧号")
-    batch_parser.add_argument("-d", "--delta", type=int, default=1, 
+    batch_parser.add_argument("-d", "--delta", type=int, default=1,
                              help="帧间隔（默认1）")
-    batch_parser.add_argument("-w", "--workers", type=int, default=4, 
+    batch_parser.add_argument("-w", "--workers", type=int, default=4,
                              help="工作线程数（默认4）")
     
     # 采样提取命令
     sample_parser = subparsers.add_parser('sample', help="按时间间隔采样提取")
     sample_parser.add_argument("-i", "--input", required=True, help="输入视频路径")
     sample_parser.add_argument("-o", "--output", required=True, help="输出目录")
-    sample_parser.add_argument("-t", "--interval", type=float, default=1.0, 
+    sample_parser.add_argument("-t", "--interval", type=float, default=1.0,
                               help="采样间隔（秒，默认1.0）")
-    sample_parser.add_argument("-w", "--workers", type=int, default=4, 
+    sample_parser.add_argument("-w", "--workers", type=int, default=4,
                               help="工作线程数（默认4）")
     
     # 信息命令
@@ -423,28 +441,23 @@ def main():
     args = parser.parse_args()
     
     try:
+        if args.version:
+            show_version()
+            return
+        
+        if not args.command:
+            parser.print_help()
+            return
+        
         if args.command == 'info':
-            # 显示视频信息
-            cap = cv2.VideoCapture(args.input)
-            if not cap.isOpened():
-                raise ValueError(f"无法打开视频文件: {args.input}")
-            
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            duration = total_frames / fps if fps > 0 else 0
-            
-            cap.release()
-            
+            info = get_video_info(args.input)
             print(f"视频信息: {args.input}")
-            print(f"  分辨率: {width}x{height}")
-            print(f"  帧率: {fps:.2f} FPS")
-            print(f"  总帧数: {total_frames}")
-            print(f"  时长: {duration:.2f} 秒")
+            print(f"  分辨率: {info['width']}x{info['height']}")
+            print(f"  帧率: {info['fps']:.2f} FPS")
+            print(f"  总帧数: {info['total_frames']}")
+            print(f"  时长: {info['duration']:.2f} 秒")
             
         elif args.command == 'single':
-            # 单帧提取
             if args.output is None:
                 base_name = os.path.splitext(os.path.basename(args.input))[0]
                 if args.frame is not None:
@@ -458,27 +471,15 @@ def main():
                 extract_by_time(args.input, args.output, args.time)
             
         elif args.command == 'batch':
-            # 批量提取
             frame_nums = list(range(args.start, args.end + 1, args.delta))
             batch_extract(args.input, frame_nums, args.output, args.workers)
             
         elif args.command == 'sample':
-            # 按时间间隔采样
-            cap = cv2.VideoCapture(args.input)
-            if not cap.isOpened():
-                raise ValueError(f"无法打开视频文件: {args.input}")
+            info = get_video_info(args.input)
             
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            duration = total_frames / fps if fps > 0 else 0
-            cap.release()
-            
-            # 计算要提取的时间点和对应的帧号
-            time_points = [i * args.interval for i in range(int(duration / args.interval) + 1)]
-            frame_nums = [int(t * fps) for t in time_points]
-            
-            # 确保不超过最大帧号
-            frame_nums = [f for f in frame_nums if f < total_frames]
+            time_points = [i * args.interval for i in range(int(info['duration'] / args.interval) + 1)]
+            frame_nums = [int(t * info['fps']) for t in time_points]
+            frame_nums = [f for f in frame_nums if f < info['total_frames']]
             
             print(f"将从视频中按 {args.interval} 秒间隔采样 {len(frame_nums)} 帧")
             batch_extract(args.input, frame_nums, args.output, args.workers)
@@ -486,18 +487,19 @@ def main():
         elif args.command == 'dirfirst':
             max_size = getattr(args, 'max_size', None)
             min_size = getattr(args, 'min_size', None)
-            extract_first_frames_with_compression(args.input_dir, args.output_dir, args.recursive, 
+            extract_first_frames_with_compression(args.input_dir, args.output_dir, args.recursive,
                                                 args.compress, args.webp_quality, max_size, min_size)
             
         elif args.command == 'compress':
             max_size = getattr(args, 'max_size', None)
             min_size = getattr(args, 'min_size', None)
-            compress_images_to_webp(args.input_dir, args.output_dir, args.recursive, args.quality, 
+            compress_images_to_webp(args.input_dir, args.output_dir, args.recursive, args.quality,
                                   max_size, min_size)
             
     except Exception as e:
         print(f"❌ 错误: {str(e)}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
