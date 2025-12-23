@@ -206,4 +206,24 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 
 ---
 
+## 🤝 参与贡献
+
+欢迎提交 PR 或 issue！
+
+### 发布新版本
+
+1. 更新版本号（`setup.py` 和 `frame_extractor.py` 中的 `__version__`）
+2. 提交代码并打 tag：
+
+   ```bash
+   git add -A
+   git commit -m "feat: 你的更新内容"
+   git tag -a v0.x.x -m "v0.x.x: 版本说明"
+   git push origin main --tags
+   ```
+
+3. GitHub Action 会自动创建 Release 并生成 release notes
+
+---
+
 如需帮助或报错排查，请参考命令行输出信息，或在 GitHub 提 issue。

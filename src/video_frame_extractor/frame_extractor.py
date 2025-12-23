@@ -10,7 +10,7 @@ import glob
 from PIL import Image
 import io
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 
 def show_version():
