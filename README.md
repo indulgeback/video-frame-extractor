@@ -32,6 +32,7 @@ curl -sSL https://raw.githubusercontent.com/indulgeback/video-frame-extractor/ma
 - [x] 按时间间隔采样提取
 - [x] 批量目录首帧提取
 - [x] 视频信息查看
+- [x] 视频压缩（H.264 重新编码）
 - [x] 多线程加速
 - [x] 兼容常见视频格式
 - [x] 跨平台支持（Windows/macOS/Linux）
@@ -114,6 +115,25 @@ frame-extractor compress -i images_dir -o webp_dir --max-size 100
 frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 ```
 
+### 7. 视频压缩
+
+```bash
+# 压缩单个视频文件（质量50，中等压缩）
+frame-extractor vcompress -i input.mp4 -o output.mp4 -q 50
+
+# 高质量压缩（质量80，低压缩率）
+frame-extractor vcompress -i input.mp4 -o output.mp4 -q 80
+
+# 高压缩率（质量20，高压缩率）
+frame-extractor vcompress -i input.mp4 -o output.mp4 -q 20
+
+# 批量压缩目录下的视频
+frame-extractor vcompress -i videos_dir -o output_dir -q 50
+
+# 递归压缩所有子目录下的视频（保持目录结构）
+frame-extractor vcompress -i videos_dir -o output_dir -r -q 50 -w 4
+```
+
 ---
 
 ## 📑 命令参数一览
@@ -183,6 +203,16 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 | --max-size       | 最大文件大小（KB）     |      | 默认 100，超过会自动降低质量 |
 | --min-size       | 最小文件大小（KB）     |      | 默认 50，小于会自动提高质量  |
 
+### vcompress（视频压缩）
+
+| 参数             | 说明                         | 必需 | 备注                                     |
+| ---------------- | ---------------------------- | ---- | ---------------------------------------- |
+| -i, --input      | 输入视频路径或目录           | ✅   | 文件或目录                               |
+| -o, --output     | 输出视频路径或目录           | ✅   | 文件或目录                               |
+| -r, --recursive  | 递归遍历子目录               |      | 保持对等目录结构                         |
+| -q, --quality    | 压缩质量（0-100，值越小压缩率越高） |      | 默认 50，转换为 CRF 值（0-51）           |
+| -w, --workers    | 工作线程数                   |      | 默认 2（视频编码消耗资源，建议不超过4） |
+
 ---
 
 ## 📦 依赖
@@ -212,7 +242,7 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 
 ### 发布新版本
 
-1. 更新版本号（`setup.py` 和 `frame_extractor.py` 中的 `__version__`）
+1. 更新版本号（`setup.py` 和 `core/video.py` 中的 `__version__`）
 2. 提交代码并打 tag：
 
    ```bash

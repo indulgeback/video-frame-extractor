@@ -2,6 +2,7 @@ LICENSE
 README.md
 setup.py
 src/video_frame_extractor/__init__.py
+src/video_frame_extractor/cli.py
 src/video_frame_extractor/frame_extractor.py
 src/video_frame_extractor.egg-info/PKG-INFO
 src/video_frame_extractor.egg-info/SOURCES.txt
@@ -9,3 +10,9 @@ src/video_frame_extractor.egg-info/dependency_links.txt
 src/video_frame_extractor.egg-info/entry_points.txt
 src/video_frame_extractor.egg-info/requires.txt
 src/video_frame_extractor.egg-info/top_level.txt
+src/video_frame_extractor/core/__init__.py
+src/video_frame_extractor/core/compression.py
+src/video_frame_extractor/core/directory.py
+src/video_frame_extractor/core/extract.py
+src/video_frame_extractor/core/video.py
+src/video_frame_extractor/core/video_compression.py

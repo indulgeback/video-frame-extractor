@@ -1,13 +1,14 @@
 Metadata-Version: 2.4
 Name: video-frame-extractor
-Version: 0.1.1
+Version: 0.2.3
 Summary: 一个用于提取视频帧的命令行工具
 Home-page: https://github.com/indulgeback/video-frame-extractor
 Author: LeviLiu
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
+Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: av
 Requires-Dist: tqdm
@@ -17,4 +18,5 @@ Dynamic: classifier
 Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
