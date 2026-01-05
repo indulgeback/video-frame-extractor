@@ -118,7 +118,7 @@ frame-extractor compress -i images_dir -o webp_dir --min-size 50 --max-size 200
 ### 7. 视频压缩
 
 ```bash
-# 压缩单个视频文件（质量50，中等压缩）
+# 压缩单个视频文件（质量50，中等压缩，medium预设）
 frame-extractor vcompress -i input.mp4 -o output.mp4 -q 50
 
 # 高质量压缩（质量80，低压缩率）
@@ -127,12 +127,46 @@ frame-extractor vcompress -i input.mp4 -o output.mp4 -q 80
 # 高压缩率（质量20，高压缩率）
 frame-extractor vcompress -i input.mp4 -o output.mp4 -q 20
 
+# 使用更慢的预设获得更高压缩率（适合最终发布）
+frame-extractor vcompress -i input.mp4 -o output.mp4 -q 50 -p slower
+
+# 快速压缩（适合临时处理）
+frame-extractor vcompress -i input.mp4 -o output.mp4 -q 50 -p veryfast
+
 # 批量压缩目录下的视频
 frame-extractor vcompress -i videos_dir -o output_dir -q 50
 
 # 递归压缩所有子目录下的视频（保持目录结构）
-frame-extractor vcompress -i videos_dir -o output_dir -r -q 50 -w 4
+frame-extractor vcompress -i videos_dir -o output_dir -r -q 50 -p slow -w 4
 ```
+
+#### 压缩参数说明
+
+**`-q, --quality` (0-100)**
+
+| quality | CRF 值 | 说明 |
+|---------|--------|------|
+| 100 | 0 | 几乎无损，文件最大 |
+| 80 | 10 | 高质量 |
+| 60 | 20 | 较好质量 |
+| 50 | 25 | 中等质量（推荐） |
+| 40 | 30 | 较低质量 |
+| 20 | 40 | 高压缩率 |
+| 0 | 51 | 最高压缩率，质量最低 |
+
+**`-p, --preset` 编码速度预设**
+
+| preset | 编码速度 | 压缩效率 | 适用场景 |
+|--------|----------|----------|----------|
+| ultrafast | 最快 | 最低 | 实时转码、快速预览 |
+| veryfast | 很快 | 较低 | 快速处理 |
+| fast | 快 | 中等 | 日常使用 |
+| medium | 中等 | 中等 | **默认推荐** |
+| slow | 慢 | 较高 | 存档备份 |
+| slower | 更慢 | 很高 | 最终发布版本 |
+| veryslow | 最慢 | 最高 | 追求最小文件体积 |
+
+> **提示**: 预设越慢，同等画质下文件越小，但编码时间越长。
 
 ---
 
@@ -205,13 +239,14 @@ frame-extractor vcompress -i videos_dir -o output_dir -r -q 50 -w 4
 
 ### vcompress（视频压缩）
 
-| 参数             | 说明                         | 必需 | 备注                                     |
-| ---------------- | ---------------------------- | ---- | ---------------------------------------- |
-| -i, --input      | 输入视频路径或目录           | ✅   | 文件或目录                               |
-| -o, --output     | 输出视频路径或目录           | ✅   | 文件或目录                               |
-| -r, --recursive  | 递归遍历子目录               |      | 保持对等目录结构                         |
-| -q, --quality    | 压缩质量（0-100，值越小压缩率越高） |      | 默认 50，转换为 CRF 值（0-51）           |
-| -w, --workers    | 工作线程数                   |      | 默认 2（视频编码消耗资源，建议不超过4） |
+| 参数              | 说明                                    | 必需 | 备注                                       |
+| ----------------- | --------------------------------------- | ---- | ------------------------------------------ |
+| -i, --input       | 输入视频路径或目录                      | ✅   | 文件或目录                                 |
+| -o, --output      | 输出视频路径或目录                      | ✅   | 文件或目录                                 |
+| -r, --recursive   | 递归遍历子目录                          |      | 保持对等目录结构                           |
+| -q, --quality     | 压缩质量（0-100，值越大质量越高文件越大） |      | 默认 50，转换为 CRF 值（0-51，反向映射）   |
+| -p, --preset      | 编码速度预设                            |      | 默认 medium，可选 ultrafast/veryfast/fast/medium/slow/slower/veryslow |
+| -w, --workers     | 工作线程数                              |      | 默认 2（视频编码消耗资源，建议不超过4）     |
 
 ---
 

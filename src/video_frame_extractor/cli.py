@@ -78,7 +78,10 @@ def main():
     vcompress_parser.add_argument("-i", "--input", required=True, help="输入视频路径或目录")
     vcompress_parser.add_argument("-o", "--output", required=True, help="输出视频路径或目录")
     vcompress_parser.add_argument("-r", "--recursive", action="store_true", help="递归遍历子目录（当输入为目录时）")
-    vcompress_parser.add_argument("-q", "--quality", type=int, default=50, help="压缩质量（0-100，默认50，值越小压缩率越高）")
+    vcompress_parser.add_argument("-q", "--quality", type=int, default=50, help="压缩质量（0-100，默认50，值越大质量越高）")
+    vcompress_parser.add_argument("-p", "--preset", default='medium',
+                                  choices=['ultrafast', 'veryfast', 'fast', 'medium', 'slow', 'slower', 'veryslow'],
+                                  help="编码速度预设（默认medium，越慢压缩率越高）")
     vcompress_parser.add_argument("-w", "--workers", type=int, default=2, help="工作线程数（默认2）")
 
     args = parser.parse_args()
@@ -142,12 +145,12 @@ def main():
         elif args.command == 'vcompress':
             if os.path.isfile(args.input):
                 # 单个视频文件压缩
-                success, info = compress_video(args.input, args.output, args.quality)
+                success, info = compress_video(args.input, args.output, args.quality, args.preset)
                 if success:
                     print(f"✅ 压缩完成: {info['input_size']:.1f}MB -> {info['output_size']:.1f}MB (-{info['compression_ratio']:.1f}%)")
             else:
                 # 目录批量压缩
-                compress_videos_in_dir(args.input, args.output, args.recursive, args.quality, args.workers)
+                compress_videos_in_dir(args.input, args.output, args.recursive, args.quality, args.preset, args.workers)
 
     except Exception as e:
         print(f"❌ 错误: {str(e)}", file=sys.stderr)

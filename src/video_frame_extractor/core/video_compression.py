@@ -10,16 +10,25 @@ from tqdm import tqdm
 import av
 
 
-def compress_video(input_path: str, output_path: str, quality: int = 23) -> None:
+def compress_video(input_path: str, output_path: str, quality: int = 50,
+                   preset: str = 'medium') -> None:
     """
     压缩单个视频文件
 
     参数:
         input_path: 输入视频文件路径
         output_path: 输出视频文件路径
-        quality: 压缩质量（0-100，值越小质量越高文件越大）
+        quality: 压缩质量（0-100，值越大质量越高文件越大）
                  转换为 CRF: 0-100 -> 51-0 (反向映射)
-                 默认 23 (CRF约28, 中等质量)
+                 默认 50 (CRF=25, 中等质量)
+        preset: 编码速度预设，可选值：
+                - ultrafast: 最快编码，压缩率最低
+                - veryfast: 很快编码
+                - fast: 快速编码
+                - medium: 中等速度和压缩率（默认）
+                - slow: 慢速编码，更高压缩率
+                - slower: 更慢编码，高压缩率
+                - veryslow: 最慢编码，最高压缩率
     """
     # 创建输出目录
     output_dir = os.path.dirname(output_path)
@@ -54,7 +63,7 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
         # 设置 CRF 值控制质量
         output_video_stream.codec_context.options = {
             'crf': str(crf),
-            'preset': 'medium',  # 编码速度预设
+            'preset': preset,  # 编码速度预设
         }
 
         # 如果有音频流，复制音频
@@ -73,23 +82,29 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
         if input_bitrate:
             input_bitrate_kb = input_bitrate / 1000
 
-        # 编码视频帧
-        for packet in input_container.demux(input_video_stream):
-            for frame in packet.decode():
-                for output_packet in output_video_stream.encode(frame):
-                    output_container.mux(output_packet)
+        # 编码视频和音频帧 - 逐包处理
+        # 使用 demux 处理所有包，根据包类型路由
+        for packet in input_container.demux():
+            if packet.stream == input_video_stream:
+                # 视频包
+                for frame in packet.decode():
+                    for output_packet in output_video_stream.encode(frame):
+                        output_container.mux(output_packet)
+            else:
+                # 音频包 - 找到对应的输出流
+                for input_audio, output_audio in output_audio_streams:
+                    if packet.stream == input_audio:
+                        for frame in packet.decode():
+                            for output_packet in output_audio.encode(frame):
+                                output_container.mux(output_packet)
+                        break
 
-        # 刷新编码器
+        # 刷新视频编码器
         for output_packet in output_video_stream.encode():
             output_container.mux(output_packet)
 
-        # 处理音频流 - 解码后重新编码
+        # 刷新音频编码器
         for input_audio, output_audio in output_audio_streams:
-            for packet in input_container.demux(input_audio):
-                for frame in packet.decode():
-                    for output_packet in output_audio.encode(frame):
-                        output_container.mux(output_packet)
-            # 刷新音频编码器
             for output_packet in output_audio.encode():
                 output_container.mux(output_packet)
 
@@ -121,7 +136,7 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
 
 
 def compress_videos_in_dir(input_dir: str, output_dir: str, recursive: bool = False,
-                           quality: int = 23, max_workers: int = 2) -> None:
+                           quality: int = 50, preset: str = 'medium', max_workers: int = 2) -> None:
     """
     批量压缩目录中的视频文件
 
@@ -129,7 +144,8 @@ def compress_videos_in_dir(input_dir: str, output_dir: str, recursive: bool = Fa
         input_dir: 输入视频目录
         output_dir: 输出视频目录
         recursive: 是否递归遍历子目录
-        quality: 压缩质量（0-100，默认23）
+        quality: 压缩质量（0-100，默认50）
+        preset: 编码速度预设（默认medium）
         max_workers: 最大工作线程数（视频编码消耗资源，默认2）
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -162,7 +178,7 @@ def compress_videos_in_dir(input_dir: str, output_dir: str, recursive: bool = Fa
             out_path = os.path.join(output_dir, f"{base}.mp4")
             Path(os.path.dirname(out_path)).mkdir(parents=True, exist_ok=True)
 
-            success, info = compress_video(video_path, out_path, quality)
+            success, info = compress_video(video_path, out_path, quality, preset)
 
             if success:
                 size_info = (f" {info['input_size']:.1f}MB -> "

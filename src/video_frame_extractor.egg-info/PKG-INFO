@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: video-frame-extractor
-Version: 0.2.3
+Version: 0.3.4
 Summary: 一个用于提取视频帧的命令行工具
 Home-page: https://github.com/indulgeback/video-frame-extractor
 Author: LeviLiu
