@@ -42,18 +42,19 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
         # 创建输出视频
         output_container = av.open(output_path, 'w')
 
-        # 添加视频流并设置编码器参数
-        # 使用 guessed_rate 获取视频帧率
-        frame_rate = input_video_stream.guessed_rate
-        output_video_stream = output_container.add_stream('libx264', rate=frame_rate)
+        # 添加视频流，使用输入视频的帧率
+        input_fps = input_video_stream.guessed_rate
+        output_video_stream = output_container.add_stream('libx264', rate=input_fps)
+
+        # 设置编码参数
         output_video_stream.width = input_video_stream.width
         output_video_stream.height = input_video_stream.height
         output_video_stream.pix_fmt = 'yuv420p'
 
         # 设置 CRF 值控制质量
-        output_video_stream.options = {
+        output_video_stream.codec_context.options = {
             'crf': str(crf),
-            'preset': 'medium',  # 编码速度预设: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+            'preset': 'medium',  # 编码速度预设
         }
 
         # 如果有音频流，复制音频
