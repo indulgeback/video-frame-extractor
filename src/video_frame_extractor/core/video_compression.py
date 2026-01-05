@@ -43,7 +43,9 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
         output_container = av.open(output_path, 'w')
 
         # 添加视频流并设置编码器参数
-        output_video_stream = output_container.add_stream('libx264', rate=input_video_stream.rate)
+        # 使用 guessed_rate 获取视频帧率
+        frame_rate = input_video_stream.guessed_rate
+        output_video_stream = output_container.add_stream('libx264', rate=frame_rate)
         output_video_stream.width = input_video_stream.width
         output_video_stream.height = input_video_stream.height
         output_video_stream.pix_fmt = 'yuv420p'
