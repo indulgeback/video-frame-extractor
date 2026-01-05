@@ -83,10 +83,15 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
         for output_packet in output_video_stream.encode():
             output_container.mux(output_packet)
 
-        # 处理音频流
+        # 处理音频流 - 解码后重新编码
         for input_audio, output_audio in output_audio_streams:
             for packet in input_container.demux(input_audio):
-                output_container.mux(packet)
+                for frame in packet.decode():
+                    for output_packet in output_audio.encode(frame):
+                        output_container.mux(output_packet)
+            # 刷新音频编码器
+            for output_packet in output_audio.encode():
+                output_container.mux(output_packet)
 
         # 获取输出视频信息
         output_video_stream = output_container.streams.video[0]
