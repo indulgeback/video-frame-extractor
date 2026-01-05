@@ -60,7 +60,12 @@ def compress_video(input_path: str, output_path: str, quality: int = 23) -> None
         # 如果有音频流，复制音频
         output_audio_streams = []
         for audio_stream in input_audio_streams:
-            output_audio_stream = output_container.add_stream(template=audio_stream)
+            # PyAV 16+ 不支持 template 参数，需要手动指定 codec
+            audio_codec = audio_stream.codec_context.name
+            output_audio_stream = output_container.add_stream(audio_codec)
+            # 复制音频编码参数
+            output_audio_stream.sample_rate = audio_stream.sample_rate
+            output_audio_stream.layout = audio_stream.layout
             output_audio_streams.append((audio_stream, output_audio_stream))
 
         # 获取输入视频的平均码率，用于预估
